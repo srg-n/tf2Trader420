@@ -1,0 +1,16 @@
+{
+  "app": {
+    "cache": {
+      "listingsRefreshInterval": 300
+    }
+  },
+  "steam": {
+    "accountName": "",
+    "password": "",
+    "identitySecret": "",
+    "sharedSecret": ""
+  },
+  "backpacktf": {
+    "accessToken": ""
+  }
+}
