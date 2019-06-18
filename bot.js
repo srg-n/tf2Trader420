@@ -10,7 +10,7 @@ const TeamFortress2 = require('tf2');
 const TradeOfferManager = require('steam-tradeoffer-manager');
 const fs = require('fs');
 const steamid = require('steamid');
-const bptf = require('bptf-listings');
+const bptf = require("bptf-listings");
 const tf2items = require('tf2-items');
 const events = require('events');
 const nodeCache = require("node-cache");
@@ -18,35 +18,26 @@ const chalk = require('chalk');
 const figures = require('figures');
 
 //TODO: config değiştirmek için test.js test configi argümanlarına bak
+//TODO: logger.Trade loggerında yer kaplamayı azaltmak için dosyaya yazılan formatı sadeleştir, konsol aynı kalsın
 
 let bptfClient = new bptf(null);
 let winston = require("winston");
 const {format} = require('winston');
 
-const customLogLevels = {
+const appLogLevels = {
     levels: {
         crit: 0,
         error: 1,
         warning: 2,
         debug: 4,
         success: 5,
-        trade: 5
     },
-    /* colors: {
-        crit: 'red bold underline',
-        error: 'magenta bold redBG',
-        warning: 'yellow',
-        debug: 'cyan',
-        success: 'green',
-        trade: 'white',
-    }, */
     colors: {
         crit: chalk.black.bgRed.underline.italic,
         error: chalk.black.bgRed.underline,
         warning: chalk.yellow.underline,
         debug: chalk.cyanBright.underline.bold,
         success: chalk.green.underline,
-        trade: chalk.whiteBright.underline,
     },
     symbols: {
         crit:       figures.cross,
@@ -54,11 +45,33 @@ const customLogLevels = {
         warning:    figures.warning,
         debug:      figures.bullet,
         success:    figures.tick,
-        trade:      figures.pointer
     }
 };
 
-let logger = winston.createLogger();
+const tradeLogLevels = {
+    levels: {
+        completed: 0,
+        escrowAccepted: 0,
+        incoming: 1,
+        noMatch: 2,
+        escrowIgnore: 2,
+    },
+    colors: { // TODO
+        completed: chalk.black.bgRed.underline.italic,
+        incoming: chalk.black.bgRed.underline,
+        noMatch: chalk.yellow.underline,
+        escrowIgnore: chalk.cyanBright.underline.bold,
+        escrowAccepted: chalk.green.underline,
+    },
+    symbols: { // TODO
+        completed:       figures.cross,
+        incoming:      figures.circleCross,
+        noMatch:    figures.warning,
+        escrowIgnore:      figures.bullet,
+        escrowAccepted:    figures.tick,
+    }
+};
+
 let config = require('./config.js');
 let bpTfCache = new nodeCache({
     stdTTL: config.get('app').cache.listingsRefreshInterval, // in seconds
@@ -69,7 +82,9 @@ let bpTfCache = new nodeCache({
 });
 let eventEmitter = new events.EventEmitter();
 let client = new SteamUser();
-let manager = new TradeOfferManager({client}, );
+let manager = new TradeOfferManager({
+    steam: client,
+});
 let community = new SteamCommunity();
 let tf2 = new TeamFortress2(client);
 
@@ -92,43 +107,63 @@ let initSeq = {
     },
 };
 
-logger = winston.createLogger({
-    levels: customLogLevels.levels,
-    format: format.combine(
-        format.json(),
-        format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-    ),
+winston.loggers.add('app', {
+    level: 'success',
+    levels: appLogLevels.levels,
     transports: [
-        new winston.transports.File({ filename: 'log/' + config.get('configName') + '/app.log', level: 'crit'}),
-        new winston.transports.File({ filename: 'log/' + config.get('configName') + '/app.log', level: 'error'}),
-        new winston.transports.File({ filename: 'log/' + config.get('configName') + '/app.log', level: 'warning' }),
-        new winston.transports.File({ filename: 'log/' + config.get('configName') + '/app.log', level: 'info' }),
-        new winston.transports.File({ filename: 'log/' + config.get('configName') + '/app.log', level: 'debug' }),
-        new winston.transports.File({ filename: 'log/' + config.get('configName') + '/app.log', level: 'trade' }),
-        new winston.transports.File({ filename: 'log/' + config.get('configName') + '/trade.log', level: 'tradelog'})
+        new winston.transports.File({
+            format: format.combine(
+                format.json(),
+                format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+            ),
+            filename: 'log/' + config.get('configName') + '/app.log'}),
+        new winston.transports.Console({
+            format: format.combine(
+                format.timestamp({format: 'YYYY-MM-DD HH:mm:ss'}),
+                format.simple(),
+                format.printf(msg =>
+                        chalk.blue(msg.timestamp + ': ' + appLogLevels.colors[msg.level](appLogLevels.symbols[msg.level] + ' ' + msg.level) + ' ' + chalk.blue(msg.message))
+                    //  colorizer.colorize(msg.level, `${msg.timestamp} - ${msg.level}: ${msg.message}`)
+                )
+            ),
+        }),
     ],
 });
 
-logger.add(new winston.transports.Console({
-    level: 'success',
-    format: winston.format.combine(
-        format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-        format.simple(),
-        format.printf(msg =>
-                chalk.blue(msg.timestamp + ': ' + customLogLevels.colors[msg.level](customLogLevels.symbols[msg.level] + ' ' + msg.level) + ' ' + chalk.blue(msg.message))
-            //  colorizer.colorize(msg.level, `${msg.timestamp} - ${msg.level}: ${msg.message}`)
-        )
-    ),
+winston.loggers.add('trade', {
+    level: 'noMatch',
+    levels: tradeLogLevels.levels,
     transports: [
-        new winston.transports.Console(),
-    ]
-}));
+        new winston.transports.File({
+            format: format.combine(
+                format.json(),
+                format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+            ),
+            filename: 'log/' + config.get('configName') + '/trade.log'}),
+        new winston.transports.Console({
+            format: format.combine(
+                format.timestamp({format: 'YYYY-MM-DD HH:mm:ss'}),
+                format.simple(),
+                format.printf(msg =>
+                        chalk.blue(msg.timestamp + ': ' + tradeLogLevels.colors[msg.level](tradeLogLevels.symbols[msg.level] + ' ' + msg.level) + ' ' + chalk.blue(msg.message))
+                    //  colorizer.colorize(msg.level, `${msg.timestamp} - ${msg.level}: ${msg.message}`)
+                )
+            ),
+        }),
+    ],
+});
+
+const logger = {
+    App: winston.loggers.get('app'),
+    Trade: winston.loggers.get('trade')
+};
+
 
 eventEmitter.on('init', function (initName, status, dontRetry = false) {
     initSeq[initName].try[(new Date).getTime()] = status;
     if (status) {
         initSeq[initName].Client = true;
-        logger.success(initName + ' initialized');
+        logger.App.success(initName + ' initialized');
     } else {
         if (!dontRetry) eventEmitter.emit(initName); // let the initialized client handle the error
     }
@@ -142,8 +177,8 @@ client.logOn({
 
 client.on('loggedOn', function () {
     //  steam client log in successful
-    logger.success('Logged into Steam');
-    client.setPersona(SteamUser.EPersonaState.Offline);
+    logger.App.success('Logged into Steam');
+    client.setPersona(SteamUser.EPersonaState.Online);
     // noinspection JSCheckFunctionSignatures
     client.gamesPlayed(440);
 });
@@ -152,7 +187,7 @@ client.on('webSession', function (sessionID, cookies) {
     manager.setCookies(cookies, function (err) {
         if (err) {
             eventEmitter.emit('init', 'Steam', false);
-            logger.error(err);
+            logger.App.error(err);
             process.exit(1); // fatal error, cannot continue without api key
             return;
         }
@@ -175,7 +210,7 @@ client.on('webSession', function (sessionID, cookies) {
 
 
 bptfClient.on('heartbeat', function (bumped) {
-    logger.success('Heartbeat sent to backpack.tf, bumped ' + bumped + ' listings');
+    logger.App.success('Heartbeat sent to backpack.tf, bumped ' + bumped + ' listings');
 });
 
 tf2.on('connectedToGC', function () {
@@ -186,7 +221,7 @@ tf2.on('disconnectedFromGC', function (reason) {
     let reasonEnumerated = reason;
     if (reason === TeamFortress2.GCGoodbyeReason.GC_GOING_DOWN) reasonEnumerated = 'GC servers are going down for a maintenance';
     if (reason === TeamFortress2.GCGoodbyeReason.NO_SESSION) reasonEnumerated = 'Unexpected GC crash';
-    logger.warning('TF2 Client got disconnected from the game coordinator, ' + reasonEnumerated + '. The client will reconnect automatically when available.');
+    logger.App.warning('TF2 Client got disconnected from the game coordinator, ' + reasonEnumerated + '. The client will reconnect automatically when available.');
     eventEmitter.emit('init', 'tf2', false);
 });
 
@@ -198,7 +233,7 @@ eventEmitter.on('tf2Items', function () {
     tf2Items.init(function (err) {
         if (err) {
             eventEmitter.emit('init', 'tf2Items', false);
-            return logger.error(err);
+            return logger.App.error(err);
         }
         eventEmitter.emit('init', 'tf2Items', true);
     });
@@ -209,7 +244,7 @@ eventEmitter.on('bpTf', function () {
     bptfClient.init(function (err) {
         if (err) {
             eventEmitter.emit('init', 'bpTf', false);
-            logger.error(err);
+            logger.App.error(err);
         }
         //  bptf client init successful
         eventEmitter.emit('init', 'bpTf', true);
@@ -220,10 +255,12 @@ eventEmitter.on('bpTf', function () {
 bpTfCache.on( "expired", function() {
     //  refresh listings cache
     bptfClient.getListings(function (err, res) {
-        if (err) logger.error(err);
+        if (err) logger.App.error(err);
         else bpTfCache.set('listing', res);
+        console.log('expire: ' + JSON.stringify(bpTfCache.get('listing')));
     });
 });
+
 
 manager.on('pollData', function (pollData) {
     fs.writeFileSync('./cache/' + config.get('configName') + '/polldata.json', JSON.stringify(pollData), { flag: 'w' });
