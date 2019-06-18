@@ -2,6 +2,12 @@
   "app": {
     "cache": {
       "listingsRefreshInterval": 300
+    },
+    "behaviour": {
+      "escrow": {
+        "accept": false,
+        "maxDays": 0
+      }
     }
   },
   "steam": {
@@ -11,6 +17,7 @@
     "sharedSecret": ""
   },
   "backpacktf": {
-    "accessToken": ""
+    "accessToken": "",
+    "key": ""
   }
 }
