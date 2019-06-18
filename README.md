@@ -18,7 +18,7 @@ A node.js steambot for trading TF2 items with backpack.tf
 - Backpack distribution across multiple Steam accounts for free space (TODO)
 - Ability to buy/sell keys automatically to maintain a fixed ref/rec/scrap/wep rate (TODO)
 - Highly configurable
-- In-depth logger
+- In-depth seperated logger (app/trades) 
 ...
 
 # Requirements
