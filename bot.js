@@ -17,8 +17,6 @@ let App = {
     }
 };
 
-const logger = require('./app/logger.js');
-
 let config;
 let SteamUser;
 let SteamCommunity;
@@ -68,6 +66,8 @@ let manager = new TradeOfferManager({
 let community = new SteamCommunity();
 let tf2 = new TeamFortress2(client);
 
+const logger = require('./app/logger.js');
+
 let initSeq = {
     Steam: {
         Client: false,
@@ -91,21 +91,33 @@ eventEmitter.on('init', function (initName, status, dontRetry = false) {
         logger.App.success(initName + ' initialized');
     } else {
         if (!dontRetry) eventEmitter.emit(initName); // let the initialized client handle the error
+        initSeq[initName].Client = false;
     }
 });
 
 client.logOn({
     "accountName": config.get('steam').accountName,
     "password": config.get('steam').password,
-    "twoFactorCode": SteamTotp.generateAuthCode(config.get('steam').sharedSecret)
+    "twoFactorCode": SteamTotp.generateAuthCode(config.get('steam').sharedSecret),
+    "rememberPassword": true,
+    "autoRelogin": true
 });
 
 client.on('loggedOn', function () {
     //  steam client log in successful
     logger.App.success('Logged into Steam');
-    client.setPersona(SteamUser.EPersonaState.Offline);
+    client.setPersona(SteamUser.EPersonaState.Online);
     // noinspection JSCheckFunctionSignatures
-    client.gamesPlayed(440);
+    tf2 = new TeamFortress2(client);
+    client.gamesPlayed([]);
+    client.gamesPlayed(['testing', 440], true);
+});
+
+client.on('disconnected', function (eresult, msg) {
+    if (!eresult) eresult = '';
+    else eresult = ' - ' + SteamUser.EResult.eresult;
+    logger.App.warning('Got disconnected from Steam, will relogin automatically once available' + eresult + ' - ' + msg);
+    eventEmitter.emit('init', 'Steam', false, true);
 });
 
 client.on('webSession', function (sessionID, cookies) {
@@ -133,6 +145,10 @@ client.on('webSession', function (sessionID, cookies) {
 });
 
 
+setInterval(function() {
+        logger.App.debug('tf2 session ' + tf2.haveGCSession);
+    }, 2000);
+
 bptfClient.on('heartbeat', function (bumped) {
     logger.App.success('Heartbeat sent to backpack.tf, bumped ' + bumped + ' listings');
 });
@@ -147,8 +163,8 @@ tf2.on('disconnectedFromGC', function (reason) {
     let reasonEnumerated = reason;
     if (reason === TeamFortress2.GCGoodbyeReason.GC_GOING_DOWN) reasonEnumerated = 'GC servers are going down for a maintenance';
     if (reason === TeamFortress2.GCGoodbyeReason.NO_SESSION) reasonEnumerated = 'Unexpected GC crash';
-    logger.App.warning('TF2 Client got disconnected from the game coordinator, ' + reasonEnumerated + '. The client will reconnect automatically when available.');
     eventEmitter.emit('init', 'tf2', false);
+    logger.App.warning('TF2 Client got disconnected from the game coordinator, ' + reasonEnumerated + '. The client will reconnect automatically when available.');
 });
 
 eventEmitter.on('bpTf', function () {
@@ -164,6 +180,7 @@ eventEmitter.on('bpTf', function () {
 });
 
 function currencyMaintain() {
+    if (!initSeq.tf2.Client || initSeq.Steam.Client)
     manager.getInventoryContents(440, 2, false, function (err, inv) { // TODO: tradeableOnly true yap, ryuto_higashi f2p olduğu için tradeable olmayan şimdilik
         if (err) return logger.App.error(err);
         inv = inv.map(item => item.market_hash_name);
@@ -178,6 +195,9 @@ function currencyMaintain() {
         }); */
     });
     // TODO: maintain a fixed currency storage, craft
+    if (App.user.tf2.currencies.scrap < config.get('tf2').currencyMaintain.ref.minAmount) {
+
+    }
 }
 
 manager.on('receivedOfferChanged', function (offer, oldState) {
