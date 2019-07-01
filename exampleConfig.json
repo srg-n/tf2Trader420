@@ -7,6 +7,9 @@
       "escrow": {
         "accept": false,
         "maxDays": 0
+      },
+      "currencyMaintain": {
+        "sellKeys": false,
       }
     }
   },
@@ -17,7 +20,22 @@
     "sharedSecret": ""
   },
   "backpacktf": {
-    "accessToken": "",
-    "key": ""
+    "accessToken": ""
+  },
+  "tf2": {
+    "currencyMaintain": {
+      "ref": {
+        "minAmount": "10",
+        "craftAmount": "10"
+      },
+      "rec": {
+        "minAmount": "10",
+        "craftAmount": "10"
+      },
+      "scrap": {
+        "minAmount": "10",
+        "craftAmount": "10"
+      }
+    }
   }
 }
