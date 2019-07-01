@@ -1,0 +1,41 @@
+{
+  "app": {
+    "cache": {
+      "listingsRefreshInterval": 300
+    },
+    "behaviour": {
+      "escrow": {
+        "accept": false,
+        "maxDays": 0
+      },
+      "currencyMaintain": {
+        "sellKeys": false
+      }
+    }
+  },
+  "steam": {
+    "accountName": "",
+    "password": "",
+    "identitySecret": "",
+    "sharedSecret": ""
+  },
+  "backpacktf": {
+    "accessToken": ""
+  },
+  "tf2": {
+    "currencyMaintain": {
+      "ref": {
+        "minAmount": "10",
+        "craftAmount": "10"
+      },
+      "rec": {
+        "minAmount": "10",
+        "craftAmount": "10"
+      },
+      "scrap": {
+        "minAmount": "10",
+        "craftAmount": "10"
+      }
+    }
+  }
+}

@@ -99,3 +99,4 @@ typings/
 .idea/workspace.xml
 cache/
 config/README.md
+!/app/
