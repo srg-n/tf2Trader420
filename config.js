@@ -12,7 +12,7 @@ let config = convict({
         doc: "The config name to execute with. Path starts with current working directory.",
         format: String,
         arg: "config",
-        default: "ryuto_higashi",
+        default: "a",
     },
     app: {
         cache: {

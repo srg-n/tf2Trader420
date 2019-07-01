@@ -16,24 +16,43 @@ let App = {
         }
     }
 };
-const logger = require('./app/logger.js');
-const SteamUser = require('steam-user');
-const SteamCommunity = require('steamcommunity');
-const SteamTotp = require('steam-totp');
-const TeamFortress2 = require('tf2');
-const TradeOfferManager = require('steam-tradeoffer-manager');
-const fs = require('fs');
-const steamid = require('steamid');
-const bptf = require("bptf-listings");
-const events = require('events');
-const nodeCache = require("node-cache");
 
+const logger = require('./app/logger.js');
+
+let config;
+let SteamUser;
+let SteamCommunity;
+let SteamTotp;
+let TeamFortress2;
+let TradeOfferManager;
+let fs;
+let steamid;
+let bptf;
+let events;
+let nodeCache;
+
+try {
+    config = require('./config.js');
+    SteamUser = require('steam-user');
+    SteamCommunity = require('steamcommunity');
+    SteamTotp = require('steam-totp');
+    TeamFortress2 = require('tf2');
+    TradeOfferManager = require('steam-tradeoffer-manager');
+    fs = require('fs');
+    steamid = require('steamid');
+    bptf = require("bptf-listings");
+    events = require('events');
+    nodeCache = require("node-cache");
+} catch (exception) {
+    console.log(exception);
+    console.error('missing dependencies, use npm install');
+    process.exit(1); // fatal error
+}
 //TODO: config değiştirmek için bot.js test configi argümanlarına bak
 //TODO: Trade loggerında yer kaplamayı azaltmak için dosyaya yazılan formatı sadeleştir, konsol aynı kalsın
 
 let bptfClient = new bptf(null);
 
-let config = require('./config.js');
 let bpTfCache = new nodeCache({
     stdTTL: config.get('app').cache.listingsRefreshInterval, // in seconds
     checkperiod: 1,
@@ -169,6 +188,7 @@ manager.on('receivedOfferChanged', function (offer, oldState) {
 });
 
 manager.on('pollData', function (pollData) {
+    fs.mkdirSync('./cache/' + config.get('configName'), { recursive: true });
     fs.writeFileSync('./cache/' + config.get('configName') + '/polldata.json', JSON.stringify(pollData), { flag: 'w' });
 });
 
