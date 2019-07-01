@@ -35,12 +35,52 @@ let config = convict({
                     default: 0,
                 }
             },
+            currencyMaintain: {
+                sellKeys: {
+                    doc: "Sell keys automatically to maintain currency storage",
+                    format: 'Boolean',
+                    default: false,
+                }
+            }
         },
+    },
+    tf2: {
         currencyMaintain: {
-            sellKeys: {
-                doc: "Sell keys automatically to maintain currency storage",
-                format: 'Boolean',
-                default: false,
+            ref: {
+                minAmount: {
+                    doc: "Minimum refined metal amount to storage, automatic maintenance will get triggered if the amount is below this",
+                    format: 'int',
+                    default: 10,
+                },
+                craftAmount: {
+                    doc: "Amount to craft when automatic maintenance gets triggered",
+                    format: 'int',
+                    default: 10,
+                }
+            },
+            scrap: {
+                minAmount: {
+                    doc: "Minimum scrap metal amount to storage, automatic maintenance will get triggered if the amount is below this",
+                    format: 'int',
+                    default: 10,
+                },
+                craftAmount: {
+                    doc: "Amount to craft when automatic maintenance gets triggered",
+                    format: 'int',
+                    default: 10,
+                }
+            },
+            rec: {
+                minAmount: {
+                    doc: "Minimum reclaimed metal amount to storage, automatic maintenance will get triggered if the amount is below this",
+                    format: 'int',
+                    default: 10,
+                },
+                craftAmount: {
+                    doc: "Amount to craft when automatic maintenance gets triggered",
+                    format: 'int',
+                    default: 10,
+                }
             }
         }
     },
