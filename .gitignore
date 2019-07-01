@@ -96,3 +96,6 @@ typings/
 /test2.js
 /log/
 /cache/
+.idea/workspace.xml
+cache/
+config/README.md
