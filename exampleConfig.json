@@ -9,7 +9,7 @@
         "maxDays": 0
       },
       "currencyMaintain": {
-        "sellKeys": false,
+        "sellKeys": false
       }
     }
   },
