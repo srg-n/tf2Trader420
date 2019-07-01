@@ -4,6 +4,19 @@
 */
 "use strict";
 global._mckay_statistics_opt_out = true; // opt out https://github.com/DoctorMcKay/node-stats-reporter
+let App = {
+    user: {
+        tf2: {
+            currencies: {
+                ref: 0,
+                rec: 0,
+                scrap: 0,
+                key: 0
+            }
+        }
+    }
+};
+
 const SteamUser = require('steam-user');
 const SteamCommunity = require('steamcommunity');
 const SteamTotp = require('steam-totp');
@@ -34,12 +47,12 @@ const appLogLevels = {
         info: 5,
     },
     colors: {
-        crit: chalk.black.bgRed.underline.italic,
-        error: chalk.black.bgRed.underline,
-        warning: chalk.yellow.underline,
-        debug: chalk.cyanBright.underline.bold,
-        success: chalk.green.underline,
-        info: chalk.cyan,
+        crit:       chalk.black.bgRed.underline.italic,
+        error:      chalk.black.bgRed.underline,
+        warning:    chalk.yellow.underline,
+        debug:      chalk.cyanBright.underline.bold,
+        success:    chalk.green.underline,
+        info:       chalk.cyan,
     },
     symbols: {
         crit:       figures.cross,
@@ -47,7 +60,7 @@ const appLogLevels = {
         warning:    figures.warning,
         debug:      figures.bullet,
         success:    figures.tick,
-        info:    figures.circlePipe,
+        info:       figures.circlePipe,
     }
 };
 
@@ -60,18 +73,18 @@ const tradeLogLevels = {
         escrowIgnore: 2,
     },
     colors: {
-        completed: chalk.black.bgRed.underline.italic,
-        incoming: chalk.black.bgRed.underline,
-        noMatch: chalk.yellow.underline,
-        escrowIgnore: chalk.cyanBright.underline.bold,
+        completed:      chalk.black.bgRed.underline.italic,
+        incoming:       chalk.black.bgRed.underline,
+        noMatch:        chalk.yellow.underline,
+        escrowIgnore:   chalk.cyanBright.underline.bold,
         escrowAccepted: chalk.green.underline,
     },
     symbols: {
-        completed:       figures.cross,
-        incoming:      figures.circleCross,
-        noMatch:    figures.warning,
-        escrowIgnore:      figures.bullet,
-        escrowAccepted:    figures.tick,
+        completed:      figures.cross,
+        incoming:       figures.circleCross,
+        noMatch:        figures.warning,
+        escrowIgnore:   figures.bullet,
+        escrowAccepted: figures.tick,
     }
 };
 
@@ -144,7 +157,7 @@ winston.loggers.add('trade', {
                 format.timestamp({format: 'YYYY-MM-DD HH:mm:ss'}),
                 format.simple(),
                 format.printf(msg =>
-                        chalk.blue(msg.timestamp + ': ' + tradeLogLevels.colors[msg.level](tradeLogLevels.symbols[msg.level] + ' ' + msg.level) + ' ' + chalk.blue(msg.message))
+                    chalk.blue(msg.timestamp + ': ' + tradeLogLevels.colors[msg.level](tradeLogLevels.symbols[msg.level] + ' ' + msg.level) + ' ' + chalk.blue(msg.message))
                 )
             ),
         }),
@@ -212,6 +225,7 @@ bptfClient.on('heartbeat', function (bumped) {
 
 tf2.on('connectedToGC', function () {
     eventEmitter.emit('init', 'tf2', true);
+    currencyMaintain();
 });
 
 tf2.on('disconnectedFromGC', function (reason) {
@@ -234,18 +248,27 @@ eventEmitter.on('bpTf', function () {
     });
 });
 
+function currencyMaintain() {
+    manager.getInventoryContents(440, 2, false, function (err, inv) { // TODO: tradeableOnly true yap, ryuto_higashi f2p olduğu için tradeable olmayan şimdilik
+        if (err) return logger.App.error(err);
+        inv = inv.map(item => item.market_hash_name);
+        logger.App.debug(inv.join(', '));
+        App.user.tf2.currencies.key = inv.filter(i => i === 'Mann Co. Supply Crate Key').length;
+        App.user.tf2.currencies.scrap = inv.filter(i => i === 'Scrap Metal').length;
+        App.user.tf2.currencies.ref = inv.filter(i => i === 'Refined Metal').length;
+        App.user.tf2.currencies.rec = inv.filter(i => i === 'Reclaimed Metal').length;
+        logger.App.info('TF2 Inv. Balance: ' + App.user.tf2.currencies.key + ' key(s) ' + App.user.tf2.currencies.ref + ' ref(s) ' + App.user.tf2.currencies.rec + ' rec(s) '+ App.user.tf2.currencies.scrap + ' scrap(s)');
+        /* Object.keys(inv).forEach(function(key) {
+            logger.App.debug(inv[key].market_hash_name);
+        }); */
+    });
+    // TODO: maintain a fixed currency storage, craft
+}
+
 manager.on('receivedOfferChanged', function (offer, oldState) {
     if (offer.state === TradeOfferManager.ETradeOfferState.Accepted) {
         // check for ref/rec/scrap(/key) storage
-        manager.getInventoryContents(440, 2, false, function (err, inv) { // TODO: tradeableOnly true yap, ryuto_higashi f2p olduğu için tradeable olmayan şimdilik
-            if (err) return logger.App.error(err);
-            inv = inv.map(item => item.market_hash_name);
-            logger.App.info('TF2 Inv. Balance: ' + inv.filter(i => i === 'Refined Metal').length + ' ref(s) ' + inv.filter(i => i === 'Reclaimed Metal').length + ' rec(s) '+ inv.filter(i => i === 'Scrap Metal').length + ' scrap(s)');
-            /* Object.keys(inv).forEach(function(key) {
-                logger.App.debug(inv[key].market_hash_name);
-            }); */
-        });
-        // TODO: maintain a fixed currency storage, craft
+        currencyMaintain();
     }
 });
 
@@ -258,6 +281,6 @@ bpTfCache.on( "expired", function() {
     bptfClient.getListings(function (err, res) {
         if (err) return logger.App.error(err);
         else bpTfCache.set('listing', res);
-        logger.App.info('bp.tf Listings cache has been successfully refreshed, next expire epoch:' + bpTfCache.getTtl('listing'));
+        logger.App.info('bp.tf Listings cache has been successfully refreshed, next expire epoch: ' + bpTfCache.getTtl('listing'));
     });
 });
