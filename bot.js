@@ -249,6 +249,10 @@ manager.on('receivedOfferChanged', function (offer, oldState) {
     }
 });
 
+manager.on('pollData', function (pollData) {
+    fs.writeFileSync('./cache/' + config.get('configName') + '/polldata.json', JSON.stringify(pollData), { flag: 'w' });
+});
+
 bpTfCache.on( "expired", function() {
     //  refresh listings cache
     bptfClient.getListings(function (err, res) {
