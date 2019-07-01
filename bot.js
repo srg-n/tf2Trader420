@@ -109,7 +109,7 @@ client.on('loggedOn', function () {
     client.setPersona(SteamUser.EPersonaState.Online);
     // noinspection JSCheckFunctionSignatures
     tf2 = new TeamFortress2(client);
-    client.gamesPlayed([]);
+    client.gamesPlayed([]); //  reset the running games in order to restart tf2 game coordinator in case if tf2 gc got disconnected somehow
     client.gamesPlayed(['testing', 440], true);
 });
 
