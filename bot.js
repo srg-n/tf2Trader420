@@ -220,6 +220,7 @@ manager.on('newOffer', function (offer) {
             logger.Trade.declined('#' + offer.id + ' got declined due to being glitched');
         });
     }
+    if (shouldReturn) return;
 
     BackpackAPI.isBanned(offer.partner.getSteamID64(), function (err, res) {
         if (err) return logger.App.error(err);
@@ -231,6 +232,7 @@ manager.on('newOffer', function (offer) {
             });
         }
     });
+    if (shouldReturn) return;
 
     SteamRepAPI.isScammer(offer.partner.getSteamID64(), function(err, res) {
         if(err) {
@@ -245,7 +247,8 @@ manager.on('newOffer', function (offer) {
             }
         }
     });
-    if (shouldReturn) return false;
+    if (shouldReturn) return;
+
     //  scammer check complete, TODO: process the offer
 });
 

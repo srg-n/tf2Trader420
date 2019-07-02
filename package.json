@@ -12,7 +12,6 @@
   "dependencies": {
     "bptf-listings": "github:srg-n/node-bptf",
     "chalk": "^2.4.2",
-    "cheerio": "^1.0.0-rc.3",
     "convict": "^5.0.0",
     "figures": "^3.0.0",
     "node-cache": "^4.2.0",
