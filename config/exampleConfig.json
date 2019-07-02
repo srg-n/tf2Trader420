@@ -20,7 +20,8 @@
     "sharedSecret": ""
   },
   "backpacktf": {
-    "accessToken": ""
+    "accessToken": "",
+    "key": ""
   },
   "tf2": {
     "currencyMaintain": {

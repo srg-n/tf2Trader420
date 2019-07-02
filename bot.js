@@ -28,6 +28,7 @@ let steamid;
 let bptf;
 let events;
 let nodeCache;
+let SteamRepAPI;
 
 try {
     config = require('./config.js');
@@ -41,6 +42,8 @@ try {
     bptf = require("bptf-listings");
     events = require('events');
     nodeCache = require("node-cache");
+    SteamRepAPI = require('steamrep');
+    SteamRepAPI.timeout = 5000;
 } catch (exception) {
     console.log(exception);
     console.error('missing dependencies, use npm install');
@@ -59,7 +62,11 @@ let bpTfCache = new nodeCache({
     deleteOnExpire: true
 });
 let eventEmitter = new events.EventEmitter();
-let client = new SteamUser();
+let client = new SteamUser({
+    dataDirectory: 'cache/' + config.get('configName') + '/',
+    autoRelogin: true,
+
+});
 let manager = new TradeOfferManager({
     steam: client,
 });
@@ -67,6 +74,10 @@ let community = new SteamCommunity();
 let tf2 = new TeamFortress2(client);
 
 const logger = require('./app/logger.js');
+let BackpackAPI = require('./app/backpacktf.js');
+BackpackAPI = new BackpackAPI(config.get('backpacktf').accessToken, config.get('backpacktf').key);
+
+fs.mkdirSync('./cache', { recursive: true });
 
 let initSeq = {
     Steam: {
@@ -144,27 +155,8 @@ client.on('webSession', function (sessionID, cookies) {
     });
 });
 
-
-setInterval(function() {
-        logger.App.debug('tf2 session ' + tf2.haveGCSession);
-    }, 2000);
-
 bptfClient.on('heartbeat', function (bumped) {
     logger.App.success('Heartbeat sent to backpack.tf, bumped ' + bumped + ' listings');
-});
-
-tf2.on('connectedToGC', function () {
-    eventEmitter.emit('init', 'tf2', true);
-    tf2.sortBackpack(4);
-    currencyMaintain();
-});
-
-tf2.on('disconnectedFromGC', function (reason) {
-    let reasonEnumerated = reason;
-    if (reason === TeamFortress2.GCGoodbyeReason.GC_GOING_DOWN) reasonEnumerated = 'GC servers are going down for a maintenance';
-    if (reason === TeamFortress2.GCGoodbyeReason.NO_SESSION) reasonEnumerated = 'Unexpected GC crash';
-    eventEmitter.emit('init', 'tf2', false);
-    logger.App.warning('TF2 Client got disconnected from the game coordinator, ' + reasonEnumerated + '. The client will reconnect automatically when available.');
 });
 
 eventEmitter.on('bpTf', function () {
@@ -179,26 +171,83 @@ eventEmitter.on('bpTf', function () {
     });
 });
 
+tf2.on('connectedToGC', function () {
+    eventEmitter.emit('init', 'tf2', true);
+    tf2.sortBackpack(4);
+});
+
+tf2.on('disconnectedFromGC', function (reason) {
+    let reasonEnumerated = reason;
+    if (reason === TeamFortress2.GCGoodbyeReason.GC_GOING_DOWN) reasonEnumerated = 'GC servers are going down for a maintenance';
+    if (reason === TeamFortress2.GCGoodbyeReason.NO_SESSION) reasonEnumerated = 'Unexpected GC crash';
+    eventEmitter.emit('init', 'tf2', false);
+    logger.App.warning('TF2 Client got disconnected from the game coordinator, ' + reasonEnumerated + '. The client will reconnect automatically when available.');
+});
+
+tf2.on('itemSchemaLoaded', function () {
+    logger.App.info('TF2 item schema got updated from the GC');
+});
+
+tf2.on('itemSchemaError', function (err) {
+    logger.App.error('TF2 Item Schema: ' + err);
+});
+
 function currencyMaintain() {
-    if (!initSeq.tf2.Client || initSeq.Steam.Client)
-    manager.getInventoryContents(440, 2, false, function (err, inv) { // TODO: tradeableOnly true yap, ryuto_higashi f2p olduğu için tradeable olmayan şimdilik
-        if (err) return logger.App.error(err);
-        inv = inv.map(item => item.market_hash_name);
-        logger.App.debug(inv.join(', '));
-        App.user.tf2.currencies.key = inv.filter(i => i === 'Mann Co. Supply Crate Key').length;
-        App.user.tf2.currencies.scrap = inv.filter(i => i === 'Scrap Metal').length;
-        App.user.tf2.currencies.ref = inv.filter(i => i === 'Refined Metal').length;
-        App.user.tf2.currencies.rec = inv.filter(i => i === 'Reclaimed Metal').length;
-        logger.App.info('TF2 Inv. Balance: ' + App.user.tf2.currencies.key + ' key(s) ' + App.user.tf2.currencies.ref + ' ref(s) ' + App.user.tf2.currencies.rec + ' rec(s) '+ App.user.tf2.currencies.scrap + ' scrap(s)');
-        /* Object.keys(inv).forEach(function(key) {
-            logger.App.debug(inv[key].market_hash_name);
-        }); */
-    });
+    if (initSeq.tf2.Client && initSeq.Steam.Client && tf2.backpack) {
+        App.user.tf2.currencies.key = tf2.backpack.filter(obj => obj.def_index === 5021).length;
+        App.user.tf2.currencies.scrap = tf2.backpack.filter(obj => obj.def_index === 5000).length;
+        App.user.tf2.currencies.ref = tf2.backpack.filter(obj => obj.def_index === 5002).length;
+        App.user.tf2.currencies.rec = tf2.backpack.filter(obj => obj.def_index === 5001).length;
+        logger.App.info('TF2 Inv. Balance: ' + App.user.tf2.currencies.key + ' key(s) ' + App.user.tf2.currencies.ref + ' ref(s) ' + App.user.tf2.currencies.rec + ' rec(s) ' + App.user.tf2.currencies.scrap + ' scrap(s)');
+    }
     // TODO: maintain a fixed currency storage, craft
     if (App.user.tf2.currencies.scrap < config.get('tf2').currencyMaintain.ref.minAmount) {
 
     }
 }
+
+setInterval(function () {   //  TODO: remove debuggers
+    currencyMaintain();
+}, 2000);
+
+manager.on('newOffer', function (offer) {
+    let shouldReturn = false;
+
+    if (offer.isGlitched()) {
+        offer.decline(function (err) {
+            if (err) return logger.App.error('Could not decline glitched offer #' + offer.id);
+            shouldReturn = true;
+            logger.Trade.declined('#' + offer.id + ' got declined due to being glitched');
+        });
+    }
+
+    BackpackAPI.isBanned(offer.partner.getSteamID64(), function (err, res) {
+        if (err) return logger.App.error(err);
+        if(res) {
+            offer.decline(function (err) {
+                if (err) return logger.App.error(err);
+                shouldReturn = true;
+                logger.Trade.declined('#' + offer.id + ' got declined because the sender is banned on backpack.tf');
+            });
+        }
+    });
+
+    SteamRepAPI.isScammer(offer.partner.getSteamID64(), function(err, res) {
+        if(err) {
+            logger.App.error(err);
+        } else {
+            if(res) {
+                offer.decline(function (err) {
+                    if (err) return logger.App.error(err);
+                    shouldReturn = true;
+                    logger.Trade.declined('#' + offer.id + ' got declined because the sender is marked as a scammer on SteamRep.');
+                });
+            }
+        }
+    });
+    if (shouldReturn) return false;
+    //  scammer check complete, TODO: process the offer
+});
 
 manager.on('receivedOfferChanged', function (offer, oldState) {
     if (offer.state === TradeOfferManager.ETradeOfferState.Accepted) {

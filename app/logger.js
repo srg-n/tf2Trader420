@@ -33,13 +33,17 @@ const appLogLevels = {
 
 const tradeLogLevels = {
     levels: {
+        accepted: 0,
+        declined: 0,
         completed: 0,
         escrowAccepted: 0,
         incoming: 1,
         noMatch: 2,
         escrowIgnore: 2,
     },
-    colors: {
+    colors: {   //TODO: change the styles for the trade logger
+        accepted:      chalk.black.bgRed.underline.italic,
+        declined:      chalk.black.bgRed.underline.italic,
         completed:      chalk.black.bgRed.underline.italic,
         incoming:       chalk.black.bgRed.underline,
         noMatch:        chalk.yellow.underline,
