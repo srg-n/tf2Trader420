@@ -28,7 +28,6 @@ let steamid;
 let bptf;
 let events;
 let nodeCache;
-let SteamRepAPI;
 
 try {
     config = require('./config.js');
@@ -42,8 +41,6 @@ try {
     bptf = require("bptf-listings");
     events = require('events');
     nodeCache = require("node-cache");
-    SteamRepAPI = require('steamrep');
-    SteamRepAPI.timeout = 5000;
 } catch (exception) {
     console.log(exception);
     console.error('missing dependencies, use npm install');
@@ -76,8 +73,6 @@ let tf2 = new TeamFortress2(client);
 const logger = require('./app/logger.js');
 let BackpackAPI = require('./app/backpacktf.js');
 BackpackAPI = new BackpackAPI(config.get('backpacktf').accessToken, config.get('backpacktf').key);
-
-fs.mkdirSync('./cache', { recursive: true });
 
 let initSeq = {
     Steam: {
@@ -167,6 +162,7 @@ eventEmitter.on('bpTf', function () {
         }
         //  bptf client init successful
         eventEmitter.emit('init', 'bpTf', true);
+
         bpTfCache.emit('expired', 'bpTf', true);
     });
 });
@@ -217,7 +213,7 @@ manager.on('newOffer', function (offer) {
         offer.decline(function (err) {
             if (err) return logger.App.error('Could not decline glitched offer #' + offer.id);
             shouldReturn = true;
-            logger.Trade.declined('#' + offer.id + ' got declined due to being glitched');
+            logger.Trade.glitchedDeclined('#' + offer.id + ' got declined due to being glitched');
         });
     }
     if (shouldReturn) return;
@@ -228,23 +224,8 @@ manager.on('newOffer', function (offer) {
             offer.decline(function (err) {
                 if (err) return logger.App.error(err);
                 shouldReturn = true;
-                logger.Trade.declined('#' + offer.id + ' got declined because the sender is banned on backpack.tf');
+                logger.Trade.scammerDeclined('#' + offer.id + ' got declined because the sender is a scammer.');
             });
-        }
-    });
-    if (shouldReturn) return;
-
-    SteamRepAPI.isScammer(offer.partner.getSteamID64(), function(err, res) {
-        if(err) {
-            logger.App.error(err);
-        } else {
-            if(res) {
-                offer.decline(function (err) {
-                    if (err) return logger.App.error(err);
-                    shouldReturn = true;
-                    logger.Trade.declined('#' + offer.id + ' got declined because the sender is marked as a scammer on SteamRep.');
-                });
-            }
         }
     });
     if (shouldReturn) return;
