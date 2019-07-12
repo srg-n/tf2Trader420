@@ -34,6 +34,7 @@ const appLogLevels = {
 const tradeLogLevels = {
     levels: {
         accepted: 0,
+        donationAccepted: 0,
         declined: 0,
         glitchedDeclined: 0,
         scammerDeclined: 1,
@@ -45,6 +46,7 @@ const tradeLogLevels = {
     },
     colors: {   //TODO: change the styles for the trade logger
         accepted:               chalk.black.bgRed.underline.italic,
+        donationAccepted:               chalk.black.bgRed.underline.italic,
         declined:               chalk.black.bgRed.underline.italic,
         glitchedDeclined:       chalk.black.bgRed.underline.italic,
         scammerDeclined:        chalk.black.bgRed.underline.italic,
@@ -56,6 +58,7 @@ const tradeLogLevels = {
     },
     symbols: {
         accepted: figures.bullet,
+        donationAccepted: figures.bullet,
         declined: figures.cross,
         glitchedDeclined: figures.bullet,
         scammerDeclined: figures.warning,
@@ -91,7 +94,7 @@ winston.loggers.add('app', {
 });
 
 winston.loggers.add('trade', {
-    level: 'noMatch',
+    level: 'completed',
     levels: tradeLogLevels.levels,
     transports: [
         new winston.transports.File({
