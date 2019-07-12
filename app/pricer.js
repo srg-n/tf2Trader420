@@ -1,4 +1,4 @@
-let Pricer = function(backpacktf) {
+function Pricer(backpacktf) {
     this.backpacktf = backpacktf;
     this.currency = {
         "metal": {
@@ -76,22 +76,31 @@ let Pricer = function(backpacktf) {
             }
         }
     };
+}
+
+// TODO: implement node-cache listing cache in here
+Pricer.prototype.checkMatches = function(theirItems, ourItems) {
+
 };
 
-Pricer.prototype.updateCurrencies = function(callback) {
+Pricer.prototype.updateCurrencies = function() {
     let that = this;
-    this.backpacktf.getCurrencies(function (err, res) {
-        if (err) return callback(err);
-        that.currency = res;
-        return callback(null, res);
+    return new Promise((resolve, reject) => {
+        this.backpacktf.getCurrencies()
+            .then(function (res) {
+                that.currency = res;
+                resolve(res);
+            }).catch(function (err) {
+            reject(err);  //  api request error
+        })
     });
 };
 
-Pricer.prototype.convertKeyToRef = function(keyAmount) {
+Pricer.prototype["convertKeyToRef"] = function(keyAmount) {
     return (this.currency.keys.price.value * keyAmount);
 };
 
-Pricer.prototype.convertRefToKey = function(refAmount) {
+Pricer.prototype["convertRefToKey"] = function(refAmount) {
     return (refAmount / this.currency.keys.price.value);
 };
 
