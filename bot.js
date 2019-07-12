@@ -28,6 +28,7 @@ let steamid;
 let bptf;
 let events;
 let nodeCache;
+const util = require('./app/util.js');
 
 try {
     config = require('./config.js');
@@ -197,40 +198,53 @@ function currencyMaintain() {
         logger.App.info('TF2 Inv. Balance: ' + App.user.tf2.currencies.key + ' key(s) ' + App.user.tf2.currencies.ref + ' ref(s) ' + App.user.tf2.currencies.rec + ' rec(s) ' + App.user.tf2.currencies.scrap + ' scrap(s)');
     }
     // TODO: maintain a fixed currency storage, craft
-    if (App.user.tf2.currencies.scrap < config.get('tf2').currencyMaintain.ref.minAmount) {
+    if (App.user.tf2.currencies.scrap < config.get('app').behaviour.currencyMaintain.tf2.ref.minAmount) {
 
     }
 }
 
-setInterval(function () {   //  TODO: remove debuggers
-    currencyMaintain();
-}, 2000);
-
 manager.on('newOffer', function (offer) {
-    let shouldReturn = false;
+    let offerDetails = {};
+    logger.Trade.incoming('New offer #' + offer.id + ' from ' + offer.partner.getSteamID64());
 
     if (offer.isGlitched()) {
         offer.decline(function (err) {
-            if (err) return logger.App.error('Could not decline glitched offer #' + offer.id);
-            shouldReturn = true;
-            logger.Trade.glitchedDeclined('#' + offer.id + ' got declined due to being glitched');
+            if (err) reject(logger.App.error('Could not decline glitched offer #' + offer.id));
+            else resolve(logger.Trade.glitchedDeclined('#' + offer.id + ' got declined due to being glitched'));
+        });
+    } else {
+        offer.getUserDetails(function (err, me, them) {
+            if (err) {
+                logger.App.info('Could not get additional info for offer #' + offer.id + ', will try to continue without additional info');
+                logger.App.error(JSON.stringify(err, ["message", "arguments", "type", "name"]));
+            } else {
+                offerDetails.me = me;
+                offerDetails.them = them;
+            }
+            BackpackAPI.isBanned(offer.partner.getSteamID64())
+                .then(function (res) {
+                    if (res) {
+                        offer.decline(function (err) {
+                            if (err) logger.App.error(JSON.stringify(err, ["message", "arguments", "type", "name"]));
+                            logger.Trade.scammerDeclined('#' + offer.id + ' got declined because sender ' + offer.partner.getSteamID64() + ' is a scammer.');
+                        });
+                    } else {
+                        //  continue handling, not banned
+                        if (offer.itemsToGive.length === 0 && offer.itemsToReceive.length > 0) { //    is a donations
+                            if (config.get('app').behaviour.acceptDonations) {
+                                offer.accept(false, function (err, status) {
+                                    if (err) logger.App.error(JSON.stringify(err, ["message", "arguments", "type", "name"]));
+                                    if (status === 'accepted') logger.Trade.donationAccepted('#' + offer.id + ' is a donation from ' + offer.partner.getSteamID64() + ', ' + util.getSafe(() => offerDetails.them.personaName) + '; got accepted.');
+                                    if (status === 'escrow') logger.Trade.donationAccepted('#' + offer.id + ' is a donation with escrow for ' + offerDetails.them.escrowDays + ' day(s) from ' + offer.partner.getSteamID64() + ', ' + util.getSafe(() => offerDetails.them.personaName) + '; got accepted.');
+                                });
+                            }
+                        }
+                    }
+                }).catch(function (err) {
+                logger.App.error(JSON.stringify(err, ["message", "arguments", "type", "name"]));
+            });
         });
     }
-    if (shouldReturn) return;
-
-    BackpackAPI.isBanned(offer.partner.getSteamID64(), function (err, res) {
-        if (err) return logger.App.error(err);
-        if(res) {
-            offer.decline(function (err) {
-                if (err) return logger.App.error(err);
-                shouldReturn = true;
-                logger.Trade.scammerDeclined('#' + offer.id + ' got declined because the sender is a scammer.');
-            });
-        }
-    });
-    if (shouldReturn) return;
-
-    //  scammer check complete, TODO: process the offer
 });
 
 manager.on('receivedOfferChanged', function (offer, oldState) {
@@ -241,11 +255,11 @@ manager.on('receivedOfferChanged', function (offer, oldState) {
 });
 
 manager.on('pollData', function (pollData) {
-    fs.mkdirSync('./cache/' + config.get('configName'), { recursive: true });
-    fs.writeFileSync('./cache/' + config.get('configName') + '/polldata.json', JSON.stringify(pollData), { flag: 'w' });
+    fs.mkdirSync('./cache/' + config.get('configName'), {recursive: true});
+    fs.writeFileSync('./cache/' + config.get('configName') + '/polldata.json', JSON.stringify(pollData), {flag: 'w'});
 });
 
-bpTfCache.on( "expired", function() {
+bpTfCache.on("expired", function () {
     //  refresh listings cache
     bptfClient.getListings(function (err, res) {
         if (err) return logger.App.error(err);
