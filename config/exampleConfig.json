@@ -4,12 +4,27 @@
       "listingsRefreshInterval": 300
     },
     "behaviour": {
+      "acceptDonations": true,
       "escrow": {
         "accept": false,
         "maxDays": 0
       },
       "currencyMaintain": {
-        "sellKeys": false
+        "tf2": {
+          "sellKeys": false,
+          "ref": {
+            "minAmount": "10",
+            "craftAmount": "10"
+          },
+          "rec": {
+            "minAmount": "10",
+            "craftAmount": "10"
+          },
+          "scrap": {
+            "minAmount": "10",
+            "craftAmount": "10"
+          }
+        }
       }
     }
   },
@@ -22,21 +37,5 @@
   "backpacktf": {
     "accessToken": "",
     "key": ""
-  },
-  "tf2": {
-    "currencyMaintain": {
-      "ref": {
-        "minAmount": "10",
-        "craftAmount": "10"
-      },
-      "rec": {
-        "minAmount": "10",
-        "craftAmount": "10"
-      },
-      "scrap": {
-        "minAmount": "10",
-        "craftAmount": "10"
-      }
-    }
   }
 }
