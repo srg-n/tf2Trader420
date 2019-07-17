@@ -117,7 +117,14 @@ client.on('loggedOn', function () {
     // noinspection JSCheckFunctionSignatures
     tf2 = new TeamFortress2(client);
     client.gamesPlayed([]); //  reset the running games in order to restart tf2 game coordinator in case if tf2 gc got disconnected somehow
-    client.gamesPlayed(['testing', 440], true);
+    //client.gamesPlayed(['testing', 440], true);
+    client.gamesPlayed([440], true);
+    client.uploadRichPresence(440, {
+        "steam_display": "#TF_RichPresence_Display",
+        "state": "PlayingMatchGroup",
+        "matchgrouploc": "bootcamp",
+        "currentmap": 'https://backpack.tf/u/' + client.steamID.getSteamID64()
+    });
 });
 
 client.on('disconnected', function (eresult, msg) {
@@ -143,7 +150,8 @@ client.on('webSession', function (sessionID, cookies) {
         bptfClient = new bptf({
             'accessToken': config.get('backpacktf').accessToken,
             'apiKey': manager.apiKey,
-            'waitTime': 1000,
+            'key': config.get('backpacktf').key,
+            'waitTime': 3000,
             'steamid64': client.steamID.getSteamID64()
         });
         eventEmitter.emit('init', 'Steam', true);
@@ -183,6 +191,7 @@ tf2.on('disconnectedFromGC', function (reason) {
 
 tf2.on('itemSchemaLoaded', function () {
     logger.App.info('TF2 item schema got updated from the GC');
+    console.log(JSON.stringify(tf2.itemSchema));
 });
 
 tf2.on('itemSchemaError', function (err) {
@@ -202,6 +211,10 @@ function currencyMaintain() {
 
     }
 }
+
+setInterval(function () {   //  TODO: remove debuggers
+    currencyMaintain();
+}, 2000);
 
 manager.on('newOffer', function (offer) {
     let offerDetails = {};
@@ -226,11 +239,11 @@ manager.on('newOffer', function (offer) {
                     if (res) {
                         offer.decline(function (err) {
                             if (err) logger.App.error(JSON.stringify(err, ["message", "arguments", "type", "name"]));
-                            logger.Trade.scammerDeclined('#' + offer.id + ' got declined because sender ' + offer.partner.getSteamID64() + ' is a scammer.');
+                            logger.Trade.scammerDeclined('#' + offer.id + ' got declined because sender ' + offer.partner.getSteamID64() + ', ' + util.getSafe(() => offerDetails.them.personaName) + ' is a scammer.');
                         });
                     } else {
                         //  continue handling, not banned
-                        if (offer.itemsToGive.length === 0 && offer.itemsToReceive.length > 0) { //    is a donations
+                        if (offer.itemsToGive.length === 0 && offer.itemsToReceive.length > 0) { //    is a donation
                             if (config.get('app').behaviour.acceptDonations) {
                                 offer.accept(false, function (err, status) {
                                     if (err) logger.App.error(JSON.stringify(err, ["message", "arguments", "type", "name"]));
@@ -238,6 +251,25 @@ manager.on('newOffer', function (offer) {
                                     if (status === 'escrow') logger.Trade.donationAccepted('#' + offer.id + ' is a donation with escrow for ' + offerDetails.them.escrowDays + ' day(s) from ' + offer.partner.getSteamID64() + ', ' + util.getSafe(() => offerDetails.them.personaName) + '; got accepted.');
                                 });
                             }
+                        } else {    //bptf match check
+                            client.getAssetClassInfo('en', 440, offer.itemsToGive, function (err, iG) {
+                                if (err) logger.App.error(JSON.stringify(err, ["message", "arguments", "type", "name"]));
+                                else {
+                                    client.getAssetClassInfo('en', 440, offer.itemsToReceive, function (err, iR) {
+                                        if (err) logger.App.error(JSON.stringify(err, ["message", "arguments", "type", "name"]));
+                                        else {  //  got item details for both parties
+                                            let itemsReceive = iR.map(item => item.market_name);
+                                            let itemsGive = iG.map(item => item.market_name);
+
+                                                
+                                        }
+                                    });
+                                }
+                            });
+                            const arr = ['cat', 'dog', 'fish'];
+                            arr.forEach(element => {
+                                console.log(element);
+                            });
                         }
                     }
                 }).catch(function (err) {
